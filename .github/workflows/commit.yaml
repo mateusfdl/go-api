@@ -15,35 +15,35 @@ jobs:
       - uses: golangci/golangci-lint-action@v6
         with:
           args: --timeout=2m
-  # test:
-  #   runs-on: ubuntu-latest
-  #   services:
-  #     postgres:
-  #       image: postgres:alpine
-  #       ports:
-  #         - 5432:5432
-  #       env:
-  #         POSTGRES_DB: template
-  #         POSTGRES_USER: postgres
-  #         POSTGRES_PASSWORD: postgres
-  #   env:
-  #     CONFIG_PATH: "${{ github.workspace }}/config/config.yaml"
-  #
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-go@v5
-  #       with:
-  #         go-version: "^1.23"
-  #
-  #     - name: migrate
-  #       run: go run cmd/migrate/migrate.go up
-  #
-  #     - name: tests-unit
-  #       run: go test -v ./internal/...
-  #
-  #     - name: tests-e2e
-  #       run: go test -v ./test/...
-  #
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: template
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+    env:
+      CONFIG_PATH: "${{ github.workspace }}/config/config.yaml"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "^1.23"
+
+      - name: migrate
+        run: go run cmd/migrate/migrate.go up
+
+      - name: tests-unit
+        run: go test -v ./internal/...
+
+      - name: tests-e2e
+        run: go test -v ./test/...
+
   release:
     needs: [lint]
     runs-on: ubuntu-latest
