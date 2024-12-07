@@ -1,0 +1,8 @@
+services:
+  mongo:
+    image: mongodb/mongodb-enterprise-server:latest
+    environment:
+      MONGO_INITDB_DATABASE: mydatavase
+    ports:
+      - 27017:27017
+
