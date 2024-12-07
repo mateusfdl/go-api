@@ -64,7 +64,7 @@ func (h *HTTP) RegisterHandler(path string, handler http.HandlerFunc, middleware
 // DefaultMiddleware logs all incoming requests
 func (h *HTTP) defaultMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.logger.Info("Request received: " + r.Method + " " + r.URL.Path)
+		h.logger.Info("Request received", "method", r.Method, "path", r.URL.Path, "query", r.URL.Query())
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
