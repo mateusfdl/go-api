@@ -13,9 +13,9 @@ import (
 type HTTP struct {
 	Port    int
 	Timeout int
-	router  *mux.Router
+	Router  *mux.Router
 	logger  *logger.Logger
-	server  *http.Server
+	Server  *http.Server
 }
 
 func New(logger *logger.Logger, cfg *Config) *HTTP {
@@ -23,9 +23,9 @@ func New(logger *logger.Logger, cfg *Config) *HTTP {
 	return &HTTP{
 		Port:    cfg.Port,
 		Timeout: cfg.Timeout,
-		router:  router,
+		Router:  router,
 		logger:  logger,
-		server: &http.Server{
+		Server: &http.Server{
 			Addr:         ":" + strconv.Itoa(cfg.Port),
 			Handler:      router,
 			ReadTimeout:  time.Duration(cfg.Timeout) * time.Second,
@@ -36,28 +36,19 @@ func New(logger *logger.Logger, cfg *Config) *HTTP {
 }
 
 func (h *HTTP) Listen() {
-	h.router.Use(h.defaultMiddleware)
+	h.Router.Use(h.defaultMiddleware)
 	h.logger.Info("Starting server on port " + strconv.Itoa(h.Port))
 
-	if err := h.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := h.Server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		h.logger.Error("Server failed to start: ", err)
 	}
 }
 
 func (h *HTTP) GracefulShutdown(ctx context.Context) {
-	if err := h.server.Shutdown(ctx); err != nil {
+	if err := h.Server.Shutdown(ctx); err != nil {
 		h.logger.Error("Error during server shutdown: ", err)
 	} else {
 		h.logger.Info("Server gracefully stopped")
-	}
-}
-
-// RegisterHandler registers a route handler with an optional middleware chain
-func (h *HTTP) RegisterHandler(path string, handler http.HandlerFunc, middlewares ...mux.MiddlewareFunc) {
-	h.logger.Info("Registering handler for path " + path)
-	route := h.router.HandleFunc(path, handler)
-	for _, middleware := range middlewares {
-		route.Handler(middleware(route.GetHandler()))
 	}
 }
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,6 +12,7 @@ import (
 	"github.com/mateusfdl/go-api/adapters/logger"
 	"github.com/mateusfdl/go-api/adapters/mongo"
 	"github.com/mateusfdl/go-api/config"
+	"github.com/mateusfdl/go-api/internal/health"
 )
 
 func main() {
@@ -26,18 +26,18 @@ func main() {
 		panic(err)
 	}
 
+	// Adapter modules
 	logger := logger.New(&c.Logger)
 	mongodb := mongo.New(ctx, logger, &c.Mongo)
 	httpServer := api.New(logger, &c.HTTP)
-	httpServer.RegisterHandler("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, err := w.Write([]byte("OK"))
-		if err != nil {
-			logger.Error("Failed to write response")
-		}
-	})
 
+	healthModule := health.New(httpServer, logger)
+
+	// Bootstrapping
 	mongo.HealthCheckConnection(ctx, mongodb, logger)
+
+	api.RegisterRoutes(healthModule.Controller)
+
 	go httpServer.Listen()
 
 	signalChan := make(chan os.Signal, 1)
