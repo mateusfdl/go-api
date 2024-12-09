@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	api "github.com/mateusfdl/go-api/adapters/http"
+	server "github.com/mateusfdl/go-api/adapters/http"
 	"github.com/mateusfdl/go-api/adapters/logger"
 	"github.com/mateusfdl/go-api/adapters/mongo"
 	"github.com/mateusfdl/go-api/config"
+	"github.com/mateusfdl/go-api/internal/crops"
+	"github.com/mateusfdl/go-api/internal/farms"
 	"github.com/mateusfdl/go-api/internal/health"
 )
 
@@ -27,38 +29,43 @@ func main() {
 	}
 
 	// Adapter modules
-	logger := logger.New(&c.Logger)
-	mongodb := mongo.New(ctx, logger, &c.Mongo)
-	httpServer := api.New(logger, &c.HTTP)
+	l := logger.New(&c.Logger)
+	db := mongo.New(ctx, l, &c.Mongo)
+	s := server.New(l, &c.HTTP)
 
-	healthModule := health.New(httpServer, logger)
+	healthModule := health.New(s, l)
+	cropsModule := crops.New(db.DB, l)
+	farmsModule := farms.New(l, &cropsModule.Repository, s, db.DB)
 
 	// Bootstrapping
-	mongo.HealthCheckConnection(ctx, mongodb, logger)
+	mongo.HookOnStart(ctx, db, l)
 
-	api.RegisterRoutes(healthModule.Controller)
+	server.RegisterRoutes(
+		healthModule.Controller,
+		farmsModule.Controller,
+	)
 
-	go httpServer.Listen()
+	go s.Listen()
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-	shutdown(signalChan, ctx, httpServer, mongodb, logger)
+	shutdown(signalChan, ctx, s, db, l)
 }
 
 func shutdown(
 	signalChan chan os.Signal,
 	ctx context.Context,
-	httpServer *api.HTTP,
-	mongodb *mongo.Mongo,
-	logger *logger.Logger,
+	s *server.HTTP,
+	db *mongo.Mongo,
+	l *logger.Logger,
 ) {
 	<-signalChan
 	shutdownCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	logger.Warn("Gracefully shutting down...")
-	httpServer.GracefulShutdown(shutdownCtx)
-	mongo.GracefulShutdown(shutdownCtx, mongodb, logger)
-	logger.Info("Shutdown complete.")
+	l.Warn("Gracefully shutting down...")
+	s.GracefulShutdown(shutdownCtx)
+	mongo.GracefulShutdown(shutdownCtx, db, l)
+	l.Info("Shutdown complete.")
 	os.Exit(0)
 }
