@@ -98,7 +98,7 @@ func CreateFarmWithoutCrops(t *testing.T) {
 		t.Errorf("Failed to unmarshal response body")
 	}
 	if farmResponse.ID == "" {
-		t.Errorf("Expected id, but got empty")
+		t.Errorf("Expect id, but got empty")
 	}
 }
 
@@ -143,15 +143,15 @@ func CreateFarmWithCrops(t *testing.T) {
 	parseResponse(t, w.Body.Bytes(), &farmResponse)
 
 	if farmResponse.ID == "" {
-		t.Errorf("Expected id, but got empty")
+		t.Errorf("Expect id, but got empty")
 	}
 }
 
 func CreateFarmComplianceFields(t *testing.T) {
 	tests := []struct {
-		name     string
-		body     string
-		expected int
+		name   string
+		body   string
+		expect int
 	}{
 		{
 			name: "Missing Name",
@@ -227,19 +227,19 @@ func ListFarms(t *testing.T) {
 		assertEqual(t, len(farmsResponse), 2, "Number of farms")
 
 		for _, farm := range farmsResponse {
-			expectedFarm := farmsMap[farm.ID].(map[string]interface{})
+			expectFarm := farmsMap[farm.ID].(map[string]interface{})
 
-			assertEqual(t, farm.Name, expectedFarm["name"], "Farm name")
-			assertEqual(t, farm.Address, expectedFarm["address"], "Farm address")
-			assertEqual(t, farm.LandArea, expectedFarm["landArea"], "Farm land area")
-			assertEqual(t, farm.UnitOfMeasurement, expectedFarm["unitOfMeasurement"], "Farm unit of measurement")
-			assertEqual(t, len(farm.Crops), len(expectedFarm["crops"].([]interface{})), "Farm crops length")
+			assertEqual(t, farm.Name, expectFarm["name"], "Farm name")
+			assertEqual(t, farm.Address, expectFarm["address"], "Farm address")
+			assertEqual(t, farm.LandArea, expectFarm["landArea"], "Farm land area")
+			assertEqual(t, farm.UnitOfMeasurement, expectFarm["unitOfMeasurement"], "Farm unit of measurement")
+			assertEqual(t, len(farm.Crops), len(expectFarm["crops"].([]interface{})), "Farm crops length")
 
 			for i, crop := range farm.Crops {
-				expectedCrop := expectedFarm["crops"].([]interface{})[i].(map[string]interface{})
-				assertEqual(t, crop.Type, expectedCrop["type"], "Crop type")
-				assertEqual(t, crop.IsIrrigated, expectedCrop["isIrrigated"], "Crop isIrrigated")
-				assertEqual(t, crop.IsInsured, expectedCrop["isInsured"], "Crop isInsured")
+				expectCrop := expectFarm["crops"].([]interface{})[i].(map[string]interface{})
+				assertEqual(t, crop.Type, expectCrop["type"], "Crop type")
+				assertEqual(t, crop.IsIrrigated, expectCrop["isIrrigated"], "Crop isIrrigated")
+				assertEqual(t, crop.IsInsured, expectCrop["isInsured"], "Crop isInsured")
 			}
 		}
 	})
@@ -247,10 +247,10 @@ func ListFarms(t *testing.T) {
 	t.Run("Filter farms by land area", func(t *testing.T) {
 		w := performRequest("GET", "/farms?skip=0&limit=1&landArea=39", nil)
 		parseResponse(t, w.Body.Bytes(), &farmsResponse)
-		expectedFarm := farmsMap[farmsResponse[0].ID].(map[string]interface{})
+		expectFarm := farmsMap[farmsResponse[0].ID].(map[string]interface{})
 
 		assertEqual(t, len(farmsResponse), 1, "Number of farms")
-		assertEqual(t, farmsResponse[0].LandArea, expectedFarm["landArea"], "Farm land area")
+		assertEqual(t, farmsResponse[0].LandArea, expectFarm["landArea"], "Farm land area")
 	})
 
 	t.Run("Filter farms by crop type", func(t *testing.T) {
@@ -361,9 +361,9 @@ func FarmDelete(t *testing.T) {
 	assertStatusCode(t, w, http.StatusNotFound)
 }
 
-func assertStatusCode(t *testing.T, response *httptest.ResponseRecorder, expected int) {
-	if response.Code != expected {
-		t.Errorf("Expected status code %d, but got %d", expected, response.Code)
+func assertStatusCode(t *testing.T, response *httptest.ResponseRecorder, expect int) {
+	if response.Code != expect {
+		t.Errorf("Expect status code %d, but got %d", expect, response.Code)
 	}
 }
 
@@ -385,7 +385,7 @@ func wipeCollections(t *testing.T, collectionNames ...string) {
 
 func assertEqual(t *testing.T, got, want interface{}, message string) {
 	if got != want {
-		t.Errorf("%s: expected %v, but got %v", message, want, got)
+		t.Errorf("%s: expect %v, but got %v", message, want, got)
 	}
 }
 

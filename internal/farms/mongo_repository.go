@@ -11,12 +11,12 @@ import (
 )
 
 type MongoRepository struct {
-	db     *mongo.Database
-	logger *logger.Logger
+	db *mongo.Database
+	l  *logger.Logger
 }
 
 func NewMongoRepository(db *mongo.Database, l *logger.Logger) *MongoRepository {
-	return &MongoRepository{db: db, logger: l}
+	return &MongoRepository{db: db, l: l}
 }
 
 func (r *MongoRepository) Create(
@@ -82,7 +82,7 @@ func (r *MongoRepository) List(
 
 	var farms []Farm
 	if err := cursor.All(ctx, &farms); err != nil {
-		r.logger.Error("error on listing farms", err)
+		r.l.Error("error on listing farms", err)
 		return nil, err
 	}
 
@@ -97,7 +97,7 @@ func (r *MongoRepository) GetByID(
 	oid, err := primitive.ObjectIDFromHex(farmId)
 
 	if err != nil {
-		r.logger.Error("error on convert object id", err)
+		r.l.Error("error on convert object id", err)
 		return nil, ErrOnConvertObjectID
 	}
 
@@ -109,7 +109,7 @@ func (r *MongoRepository) GetByID(
 			return nil, ErrFarmNotFound
 		}
 
-		r.logger.Error("error on get farm by id", err)
+		r.l.Error("error on get farm by id", err)
 		return nil, err
 	}
 
@@ -122,7 +122,7 @@ func (r *MongoRepository) Update(ctx context.Context, farmId string, dto *Update
 
 	oid, err := primitive.ObjectIDFromHex(farmId)
 	if err != nil {
-		r.logger.Error("error on convert object id", err)
+		r.l.Error("error on convert object id", err)
 		return "", ErrOnConvertObjectID
 	}
 
@@ -132,7 +132,7 @@ func (r *MongoRepository) Update(ctx context.Context, farmId string, dto *Update
 	_, err = r.db.Collection("farms").UpdateOne(ctx, filter, update)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			r.logger.Error("farm not found", err)
+			r.l.Error("farm not found", err)
 			return "", ErrFarmNotFound
 		}
 
@@ -148,13 +148,13 @@ func (r *MongoRepository) Delete(
 ) error {
 	oid, err := primitive.ObjectIDFromHex(farmId)
 	if err != nil {
-		r.logger.Error("error on convert object id", err)
+		r.l.Error("error on convert object id", err)
 		return ErrOnConvertObjectID
 	}
 
 	_, err = r.db.Collection("farms").DeleteOne(ctx, bson.M{"_id": oid})
 	if err != nil {
-		r.logger.Error("error on delete farm", err)
+		r.l.Error("error on delete farm", err)
 		return err
 	}
 

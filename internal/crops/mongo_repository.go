@@ -15,6 +15,7 @@ func NewMongoRepository(db *mongo.Database) *MongoRepository {
 	return &MongoRepository{db: db}
 }
 
+// Bulk insert crops
 func (r *MongoRepository) CreateMany(
 	ctx context.Context,
 	farmId string,

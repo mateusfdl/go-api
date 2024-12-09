@@ -9,13 +9,13 @@ import (
 )
 
 type Service struct {
-	logger         *logger.Logger
+	l              *logger.Logger
 	farmRepository Repository
 	cropRepository crops.Repository
 }
 
-func NewService(logger *logger.Logger, farmRepo Repository, cropRepo *crops.Repository) *Service {
-	return &Service{logger: logger, farmRepository: farmRepo, cropRepository: *cropRepo}
+func NewService(l *logger.Logger, farmRepo Repository, cropRepo *crops.Repository) *Service {
+	return &Service{l: l, farmRepository: farmRepo, cropRepository: *cropRepo}
 }
 
 func (s *Service) CreateFarm(ctx context.Context, dto *CreateFarmDTO) (string, error) {
