@@ -63,16 +63,19 @@ func validateFields(dto *CreateFarmDTO) error {
 				return errors.New("crop type is required")
 			}
 
+			validCropType := false
 			for _, cType := range crops.CropTypes {
 				if crop.Type == cType {
-					return nil
+					validCropType = true
+					break
 				}
 			}
 
-			return errors.New("invalid crop type")
+			if !validCropType {
+				return errors.New("invalid crop type")
+			}
 		}
 	}
-
 	return nil
 }
 
