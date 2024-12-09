@@ -79,3 +79,15 @@ func validateFields(dto *CreateFarmDTO) error {
 func (s *Service) ListFarms(ctx context.Context, f *ListFarmQuery) ([]Farm, error) {
 	return s.farmRepository.List(ctx, f)
 }
+
+func (s *Service) GetByID(ctx context.Context, id string) (*Farm, error) {
+	return s.farmRepository.GetByID(ctx, id)
+}
+
+func (s *Service) UpdateFarm(ctx context.Context, id string, dto *UpdateFarmDTO) (string, error) {
+	return s.farmRepository.Update(ctx, id, dto)
+}
+
+func (s *Service) DeleteFarm(ctx context.Context, id string) error {
+	return s.farmRepository.Delete(ctx, id)
+}

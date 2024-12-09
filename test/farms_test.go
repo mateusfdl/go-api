@@ -3,6 +3,8 @@ package test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -22,6 +24,19 @@ var (
 	s  *http_adapter.HTTP
 	db *mongo.Mongo
 )
+
+type FarmResponse struct {
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	Address           string `json:"address"`
+	LandArea          int    `json:"landArea"`
+	UnitOfMeasurement string `json:"unitOfMeasurement"`
+	Crops             []struct {
+		Type        string `json:"type"`
+		IsIrrigated bool   `json:"isIrrigated"`
+		IsInsured   bool   `json:"isInsured"`
+	} `json:"crops"`
+}
 
 func TestFarm(t *testing.T) {
 	if err := godotenv.Load(".env-test"); err != nil {
@@ -52,10 +67,17 @@ func TestFarm(t *testing.T) {
 
 	go s.Listen()
 
+	t.Run("Create Farm", CreateFarm)
+	t.Run("List Farms", ListFarms)
+	t.Run("Get Farm", FarmGet)
+	t.Run("Update Farm", FarmUpdate)
+	t.Run("Delete Farm", FarmDelete)
+}
+
+func CreateFarm(t *testing.T) {
 	t.Run("Create Farm Without Crops", CreateFarmWithoutCrops)
 	t.Run("Create Farm With Crops", CreateFarmWithCrops)
 	t.Run("Create Farm Compliance", CreateFarmComplianceFields)
-	t.Run("List Farms", ListFarms)
 }
 
 func CreateFarmWithoutCrops(t *testing.T) {
@@ -67,16 +89,10 @@ func CreateFarmWithoutCrops(t *testing.T) {
     "crops": []
   }`)
 
-	req := httptest.NewRequest("POST", "/farms", body)
-	w := httptest.NewRecorder()
-	s.Router.ServeHTTP(w, req)
+	w := performRequest("POST", "/farms", body)
+	assertStatusCode(t, w, http.StatusCreated)
 
-	if w.Code != http.StatusCreated {
-		t.Errorf("Expected status code 200, but got %d", w.Code)
-	}
-	var farmResponse struct {
-		ID string `json:"id"`
-	}
+	var farmResponse FarmResponse
 	err := json.Unmarshal(w.Body.Bytes(), &farmResponse)
 	if err != nil {
 		t.Errorf("Failed to unmarshal response body")
@@ -120,19 +136,10 @@ func CreateFarmWithCrops(t *testing.T) {
         }
     ]
   }`)
-	req := httptest.NewRequest("POST", "/farms", b)
+	w := performRequest("POST", "/farms", b)
+	assertStatusCode(t, w, http.StatusCreated)
 
-	w := httptest.NewRecorder()
-
-	s.Router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusCreated {
-		t.Errorf("Expected status code 200, but got %d", w.Code)
-	}
-
-	var farmResponse struct {
-		ID string `json:"id"`
-	}
+	var farmResponse FarmResponse
 	err := json.Unmarshal(w.Body.Bytes(), &farmResponse)
 	if err != nil {
 		t.Errorf("Failed to unmarshal response body")
@@ -143,129 +150,46 @@ func CreateFarmWithCrops(t *testing.T) {
 }
 
 func CreateFarmComplianceFields(t *testing.T) {
-	t.Run("Does not create farm without name", func(t *testing.T) {
-		b := strings.NewReader(`{
-      "landArea": 29,
-      "unitOfMeasurement": "hectares",
-      "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil",
-      "crops": []
-    }`)
-		req := httptest.NewRequest("POST", "/farms", b)
-		w := httptest.NewRecorder()
-		s.Router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status code 400, but got %d", w.Code)
-		}
-	})
-
-	t.Run("Does not create farm without land area", func(t *testing.T) {
-		b := strings.NewReader(`{
-      "name": "Farm 1",
-      "unitOfMeasurement": "hectares",
-      "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil",
-      "crops": []
-    }`)
-		req := httptest.NewRequest("POST", "/farms", b)
-		w := httptest.NewRecorder()
-		s.Router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status code 400, but got %d", w.Code)
-		}
-	})
-
-	t.Run("Does not create farm without unit of measurement", func(t *testing.T) {
-		b := strings.NewReader(`{
-      "name": "Farm 1",
-      "landArea": 29,
-      "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil",
-      "crops": []
-    }`)
-		req := httptest.NewRequest("POST", "/farms", b)
-		w := httptest.NewRecorder()
-		s.Router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status code 400, but got %d", w.Code)
-		}
-	})
-
-	t.Run("Does not create farm without address", func(t *testing.T) {
-		b := strings.NewReader(`{
-      "name": "Farm 1",
-      "landArea": 29,
-      "unitOfMeasurement": "hectares",
-      "crops": []
-    }`)
-		req := httptest.NewRequest("POST", "/farms", b)
-		w := httptest.NewRecorder()
-		s.Router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status code 400, but got %d", w.Code)
-		}
-	})
-
-	t.Run("Does not create farm without crop type", func(t *testing.T) {
-		b := strings.NewReader(`{
-      "name": "Farm 1",
-      "landArea": 29,
-      "unitOfMeasurement": "hectares",
-      "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil",
-      "crops": [
-        {
-            "isIrrigated": true,
-            "isInsured": true
-        }
-      ]
-    }`)
-		req := httptest.NewRequest("POST", "/farms", b)
-
-		w := httptest.NewRecorder()
-
-		s.Router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status code 400, but got %d", w.Code)
-		}
-	})
-
-	t.Run("Does not accept invalid crop type", func(t *testing.T) {
-		b := strings.NewReader(`{
-      "name": "Farm 1",
-      "landArea": 29,
-      "unitOfMeasurement": "hectares",
-      "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil",
-      "crops": [
-        {
-            "type": "INVALID",
-            "isIrrigated": true,
-            "isInsured": true
-        }
-      ]
-    }`)
-		req := httptest.NewRequest("POST", "/farms", b)
-
-		w := httptest.NewRecorder()
-
-		s.Router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status code 400, but got %d", w.Code)
-		}
-	})
+	tests := []struct {
+		name     string
+		body     string
+		expected int
+	}{
+		{
+			name: "Missing Name",
+			body: `{ "landArea": 29, "unitOfMeasurement": "hectares", "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil", "crops": [] }`,
+		},
+		{
+			name: "Missing Land Area",
+			body: `{ "name": "Farm 1", "unitOfMeasurement": "hectares", "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil", "crops": [] }`,
+		},
+		{
+			name: "Missing Unit of Measurement",
+			body: `{ "name": "Farm 1", "landArea": 29, "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil", "crops": [] }`,
+		},
+		{
+			name: "Missing Address",
+			body: `{ "name": "Farm 1", "landArea": 29, "unitOfMeasurement": "hectares", "crops": [] }`,
+		},
+		{
+			name: "Missing Crop Type",
+			body: `{ "name": "Farm 1", "landArea": 29, "unitOfMeasurement": "hectares", "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil", "crops": [ { "isIrrigated": true, "isInsured": true } ] }`,
+		},
+		{
+			name: "Invalid Crop Type",
+			body: `{ "name": "Farm 1", "landArea": 29, "unitOfMeasurement": "hectares", "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil", "crops": [ { "type": "INVALID", "isIrrigated": true, "isInsured": true } ] }`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := performRequest("POST", "/farms", strings.NewReader(tt.body))
+			assertStatusCode(t, w, http.StatusBadRequest)
+		})
+	}
 }
 
 func ListFarms(t *testing.T) {
-	_, err := db.DB.Collection("farms").DeleteMany(context.Background(), bson.M{})
-	if err != nil {
-		t.Errorf("Failed to wipe farms before test")
-	}
-	_, err = db.DB.Collection("crops").DeleteMany(context.Background(), bson.M{})
-	if err != nil {
-		t.Errorf("Failed to wipe crops before test")
-	}
+	wipeCollections(t, "farms", "crops")
 	firstFarm := map[string]interface{}{
 		"name":              "Farm 1",
 		"landArea":          29,
@@ -284,52 +208,26 @@ func ListFarms(t *testing.T) {
 
 	farmsMap := make(map[string]interface{})
 	for _, farm := range []interface{}{firstFarm, secondFarm} {
-		w := httptest.NewRecorder()
 		b, err := json.Marshal(farm)
 		if err != nil {
 			t.Errorf("Failed to marshal farm")
 		}
+		var farmResponse FarmResponse
 
-		var farmResponse struct {
-			ID string `json:"id"`
-		}
-
-		req := httptest.NewRequest("POST", "/farms", strings.NewReader(string(b)))
-
-		s.Router.ServeHTTP(w, req)
+		w := performRequest("POST", "/farms", strings.NewReader(string(b)))
 		err = json.Unmarshal(w.Body.Bytes(), &farmResponse)
 		if err != nil {
 			t.Errorf("Failed to unmarshal response body")
 		}
 
-		if w.Code != http.StatusCreated {
-			t.Errorf("Failed to create farm")
-		}
-
 		farmsMap[farmResponse.ID] = farm
 	}
 
-	var farmsResponse []struct {
-		ID                string `json:"id"`
-		Name              string `json:"name"`
-		Address           string `json:"address"`
-		LandArea          int    `json:"landArea"`
-		UnitOfMeasurement string `json:"unitOfMeasurement"`
-		Crops             []struct {
-			Type        string `json:"type"`
-			IsIrrigated bool   `json:"isIrrigated"`
-			IsInsured   bool   `json:"isInsured"`
-		} `json:"crops"`
-	}
+	var farmsResponse []FarmResponse
 
 	t.Run("List farms", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/farms?skip=0&limit=10", nil)
-		w := httptest.NewRecorder()
-		s.Router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status code 200, but got %d", w.Code)
-		}
+		w := performRequest("GET", "/farms?skip=0&limit=10", nil)
+		assertStatusCode(t, w, http.StatusOK)
 
 		err := json.Unmarshal(w.Body.Bytes(), &farmsResponse)
 		if err != nil {
@@ -380,9 +278,7 @@ func ListFarms(t *testing.T) {
 	})
 
 	t.Run("Filter farms by land area", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/farms?skip=0&limit=1&$landArea=39", nil)
-		w := httptest.NewRecorder()
-		s.Router.ServeHTTP(w, req)
+		w := performRequest("GET", "/farms?skip=0&limit=1&landArea=39", nil)
 
 		err := json.Unmarshal(w.Body.Bytes(), &farmsResponse)
 		if err != nil {
@@ -401,9 +297,7 @@ func ListFarms(t *testing.T) {
 	})
 
 	t.Run("Filter farms by crop type", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/farms?skip=0&limit=1&cropType=CORN", nil)
-		w := httptest.NewRecorder()
-		s.Router.ServeHTTP(w, req)
+		w := performRequest("GET", "/farms?skip=0&limit=1&cropType=CORN", nil)
 
 		err := json.Unmarshal(w.Body.Bytes(), &farmsResponse)
 		if err != nil {
@@ -411,7 +305,7 @@ func ListFarms(t *testing.T) {
 		}
 
 		if len(farmsResponse) != 1 {
-			t.Errorf("Expected 1 farm1, but got %d", len(farmsResponse))
+			t.Errorf("Expected 1 farm, but got %d", len(farmsResponse))
 		}
 
 		if len(farmsResponse[0].Crops) != 1 {
@@ -424,9 +318,7 @@ func ListFarms(t *testing.T) {
 	})
 
 	t.Run("Returns paginated results", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/farms?skip=0&limit=1", nil)
-		w := httptest.NewRecorder()
-		s.Router.ServeHTTP(w, req)
+		w := performRequest("GET", "/farms?skip=0&limit=1", nil)
 
 		err := json.Unmarshal(w.Body.Bytes(), &farmsResponse)
 		if err != nil {
@@ -441,9 +333,7 @@ func ListFarms(t *testing.T) {
 			t.Errorf("Expected farm name Farm 1, but got %s", farmsResponse[0].Name)
 		}
 
-		req = httptest.NewRequest("GET", "/farms?skip=1&limit=1", nil)
-		w = httptest.NewRecorder()
-		s.Router.ServeHTTP(w, req)
+		w = performRequest("GET", "/farms?skip=1&limit=1", nil)
 
 		err = json.Unmarshal(w.Body.Bytes(), &farmsResponse)
 		if err != nil {
@@ -458,4 +348,146 @@ func ListFarms(t *testing.T) {
 			t.Errorf("Expected farm name Farm 2, but got %s", farmsResponse[0].Name)
 		}
 	})
+}
+
+func FarmGet(t *testing.T) {
+	body := strings.NewReader(`{
+    "name": "Farm 1",
+    "landArea": 87,
+    "unitOfMeasurement": "hectares",
+    "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil",
+    "crops": []
+  }`)
+
+	w := performRequest("POST", "/farms", body)
+	assertStatusCode(t, w, http.StatusCreated)
+
+	var farmResponse FarmResponse
+	err := json.Unmarshal(w.Body.Bytes(), &farmResponse)
+	if err != nil {
+		t.Errorf("Failed to unmarshal response body")
+	}
+
+	w = performRequest("GET", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
+	assertStatusCode(t, w, http.StatusOK)
+
+	err = json.Unmarshal(w.Body.Bytes(), &farmResponse)
+	if err != nil {
+		t.Errorf("Failed to unmarshal response body")
+	}
+
+	if farmResponse.Name != "Farm 1" {
+		t.Errorf("Expected farm name Farm 1, but got %s", farmResponse.Name)
+	}
+
+	if farmResponse.Address != "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil" {
+		t.Errorf("Expected farm address Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil, but got %s", farmResponse.Address)
+	}
+
+	if farmResponse.LandArea != 87 {
+		t.Errorf("Expected farm land area 87, but got %v", farmResponse.LandArea)
+	}
+
+	if farmResponse.UnitOfMeasurement != "hectares" {
+		t.Errorf("Expected farm unit of measurement hectares, but got %s", farmResponse.UnitOfMeasurement)
+	}
+
+	if len(farmResponse.Crops) != 0 {
+		t.Errorf("Expected farm crops length 0, but got %d", len(farmResponse.Crops))
+	}
+}
+
+func FarmUpdate(t *testing.T) {
+	body := strings.NewReader(`{
+    "name": "Farm 1",
+    "landArea": 87,
+    "unitOfMeasurement": "hectares",
+    "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil",
+    "crops": []
+  }`)
+
+	w := performRequest("POST", "/farms", body)
+	assertStatusCode(t, w, http.StatusCreated)
+
+	var farmResponse FarmResponse
+	err := json.Unmarshal(w.Body.Bytes(), &farmResponse)
+	if err != nil {
+		t.Errorf("Failed to unmarshal response body")
+	}
+
+	body = strings.NewReader(`{ "name": "Farm 1 Updated" }`)
+
+	w = performRequest("PUT", fmt.Sprintf("/farms/%v", farmResponse.ID), body)
+
+	assertStatusCode(t, w, http.StatusOK)
+
+	w = performRequest("GET", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
+	err = json.Unmarshal(w.Body.Bytes(), &farmResponse)
+	if err != nil {
+		t.Errorf("Failed to unmarshal response body")
+	}
+
+	if farmResponse.Name != "Farm 1 Updated" {
+		t.Errorf("Expected farm name Farm 1 Updated, but got %s", farmResponse.Name)
+	}
+
+	// Keep untouched fields
+	if farmResponse.Address != "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil" {
+		t.Errorf("Expected farm address Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil, but got %s", farmResponse.Address)
+	}
+
+	if farmResponse.LandArea != 87 {
+		t.Errorf("Expected farm land area 87, but got %v", farmResponse.LandArea)
+	}
+
+	if farmResponse.UnitOfMeasurement != "hectares" {
+		t.Errorf("Expected farm unit of measurement hectares, but got %s", farmResponse.UnitOfMeasurement)
+	}
+}
+
+func FarmDelete(t *testing.T) {
+	body := strings.NewReader(`{
+    "name": "Farm 1",
+    "landArea": 87,
+    "unitOfMeasurement": "hectares",
+    "address": "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil",
+    "crops": []
+  }`)
+
+	w := performRequest("POST", "/farms", body)
+	assertStatusCode(t, w, http.StatusCreated)
+
+	var farmResponse FarmResponse
+	err := json.Unmarshal(w.Body.Bytes(), &farmResponse)
+	if err != nil {
+		t.Errorf("Failed to unmarshal response body")
+	}
+
+	w = performRequest("DELETE", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
+	assertStatusCode(t, w, http.StatusNoContent)
+
+	w = performRequest("GET", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
+	assertStatusCode(t, w, http.StatusNotFound)
+}
+
+func assertStatusCode(t *testing.T, response *httptest.ResponseRecorder, expected int) {
+	if response.Code != expected {
+		t.Errorf("Expected status code %d, but got %d", expected, response.Code)
+	}
+}
+
+func performRequest(method, path string, body io.Reader) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, body)
+	w := httptest.NewRecorder()
+	s.Router.ServeHTTP(w, req)
+	return w
+}
+
+func wipeCollections(t *testing.T, collectionNames ...string) {
+	for _, collectionName := range collectionNames {
+		_, err := db.DB.Collection(collectionName).DeleteMany(context.Background(), bson.M{})
+		if err != nil {
+			t.Errorf("Failed to wipe collection %s", collectionName)
+		}
+	}
 }

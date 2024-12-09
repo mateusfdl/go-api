@@ -2,7 +2,6 @@ package farms
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/mateusfdl/go-api/adapters/logger"
@@ -86,7 +85,6 @@ func (r *MongoRepository) List(
 		r.logger.Error("error on listing farms", err)
 		return nil, err
 	}
-	fmt.Println(farms)
 
 	return farms, nil
 }
@@ -108,7 +106,6 @@ func (r *MongoRepository) GetByID(
 	err = r.db.Collection("farms").FindOne(ctx, bson.M{"_id": oid}).Decode(&farm)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			r.logger.Error("farm not found", err)
 			return nil, ErrFarmNotFound
 		}
 
@@ -122,10 +119,17 @@ func (r *MongoRepository) GetByID(
 func (r *MongoRepository) Update(ctx context.Context, farmId string, dto *UpdateFarmDTO) (string, error) {
 	fields := dto.ToMap()
 	fields["updatedAt"] = time.Now()
-	filter := bson.M{"_id": farmId}
+
+	oid, err := primitive.ObjectIDFromHex(farmId)
+	if err != nil {
+		r.logger.Error("error on convert object id", err)
+		return "", ErrOnConvertObjectID
+	}
+
+	filter := bson.M{"_id": oid}
 	update := bson.M{"$set": fields}
 
-	oid, err := r.db.Collection("farms").UpdateOne(ctx, filter, update)
+	_, err = r.db.Collection("farms").UpdateOne(ctx, filter, update)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			r.logger.Error("farm not found", err)
@@ -135,7 +139,7 @@ func (r *MongoRepository) Update(ctx context.Context, farmId string, dto *Update
 		return "", err
 	}
 
-	return oid.UpsertedID.(primitive.ObjectID).Hex(), nil
+	return oid.Hex(), nil
 }
 
 func (r *MongoRepository) Delete(

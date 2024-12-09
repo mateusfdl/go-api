@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gorilla/mux"
 	http_adapter "github.com/mateusfdl/go-api/adapters/http"
 	"github.com/mateusfdl/go-api/adapters/logger"
 )
@@ -24,6 +25,9 @@ func (c *Controller) RegisterRoutes() {
 	c.l.Info("Registering farm routes")
 	c.h.Router.HandleFunc("/farms", c.CreateFarm).Methods("POST").Name("CreateFarm")
 	c.h.Router.HandleFunc("/farms", c.ListFarms).Methods("GET").Name("ListFarms").Queries("skip", "{skip}", "limit", "{limit}")
+	c.h.Router.HandleFunc("/farms/{id}", c.GetFarmByID).Methods("GET").Name("GetFarmByID")
+	c.h.Router.HandleFunc("/farms/{id}", c.UpdateFarm).Methods("PUT").Name("UpdateFarm")
+	c.h.Router.HandleFunc("/farms/{id}", c.DeleteFarm).Methods("DELETE").Name("DeleteFarm")
 }
 
 func (c *Controller) CreateFarm(w http.ResponseWriter, r *http.Request) {
@@ -105,4 +109,90 @@ func (c *Controller) ListFarms(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (c *Controller) GetFarmByID(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	if id == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	farm, err := c.farmService.GetByID(r.Context(), id)
+	if errors.Is(err, ErrFarmNotFound) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		c.l.Error("Failed to get farm", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	response, err := json.Marshal(farm)
+	if err != nil {
+		c.l.Error("Failed to marshal response", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(response)
+	if err != nil {
+		c.l.Error("Failed to write response", err)
+	}
+}
+
+func (c *Controller) UpdateFarm(w http.ResponseWriter, r *http.Request) {
+	var dto UpdateFarmDTO
+	err := json.NewDecoder(r.Body).Decode(&dto)
+	if err != nil {
+		c.l.Error("Failed to decode request body")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+	if id == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	_, err = c.farmService.UpdateFarm(r.Context(), id, &dto)
+	if errors.Is(err, ErrInvalidFarmFields) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if errors.Is(err, ErrFarmNotFound) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		c.l.Error("Failed to update farm", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (c *Controller) DeleteFarm(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	if id == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err := c.farmService.DeleteFarm(r.Context(), id)
+	if errors.Is(err, ErrFarmNotFound) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		c.l.Error("Failed to delete farm", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
