@@ -4,8 +4,10 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . ./
-RUN go build cmd/app/main.go 
+RUN go build -o main cmd/app/main.go
 
 FROM gcr.io/distroless/static:nonroot
-COPY --from=build /app/main /
-CMD ["/main"]
+WORKDIR /app
+COPY --from=build /app/main /app/main
+CMD ["/app/main"]
+

@@ -3,6 +3,30 @@ services:
     image: mongodb/mongodb-enterprise-server:latest
     environment:
       MONGO_INITDB_DATABASE: mydatabase
+    networks:
+      - farm-net
     ports:
       - 27017:27017
-
+  app:
+    build: .
+    env_file: .env
+    ports:
+      - 3000:3000
+    depends_on:
+      - mongo
+    volumes:
+      - ./.env:/app/.env
+    networks:
+      - farm-net
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    environment:
+      SWAGGER_JSON: /openapi.yaml
+    volumes:
+      - ./openapi.yaml:/openapi.yaml
+    ports:
+      - 8080:8080
+    networks:
+      - farm-net
+networks:
+  farm-net: {}
