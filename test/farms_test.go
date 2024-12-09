@@ -207,7 +207,7 @@ func ListFarms(t *testing.T) {
 	})
 
 	t.Run("Filter farms by land area", func(t *testing.T) {
-		w := driver.PerformRequest("GET", "/farms?skip=0&limit=1&landArea=39", nil)
+		w := driver.PerformRequest("GET", "/farms?skip=0&limit=25&landArea=39", nil)
 		ParseResponse(t, w.Body.Bytes(), &farmsResponse)
 		expectFarm := farmsMap[farmsResponse[0].ID].(map[string]interface{})
 
@@ -216,7 +216,7 @@ func ListFarms(t *testing.T) {
 	})
 
 	t.Run("Filter farms by crop type", func(t *testing.T) {
-		w := driver.PerformRequest("GET", "/farms?skip=0&limit=1&cropType=CORN", nil)
+		w := driver.PerformRequest("GET", "/farms?skip=0&limit=25&cropType=CORN", nil)
 		ParseResponse(t, w.Body.Bytes(), &farmsResponse)
 
 		AssertEqual(t, len(farmsResponse), 1, "Number of farms")

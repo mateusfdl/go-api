@@ -57,14 +57,14 @@ func (r *MongoRepository) List(
 		}},
 	})
 
-	if filter.CropType != nil || filter.LandArea != nil {
+	if filter.CropType != "" || filter.LandArea != 0 {
 		matchStage := bson.M{}
 
-		if filter.CropType != nil {
-			matchStage["crops.type"] = bson.M{"$in": filter.CropType}
+		if filter.CropType != "" {
+			matchStage["crops.type"] = filter.CropType
 		}
 
-		if filter.LandArea != nil {
+		if filter.LandArea != 0 {
 			matchStage["landArea"] = bson.M{"$gte": filter.LandArea}
 		}
 

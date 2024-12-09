@@ -18,10 +18,10 @@ type CreateFarmDTO struct {
 }
 
 type ListFarmQuery struct {
-	Skip     int             `json:"skip"`
-	Limit    int             `json:"limit"`
-	LandArea *int64          `json:"landArea"`
-	CropType *crops.CropType `json:"cropType"`
+	Skip     int            `json:"skip"`
+	Limit    int            `json:"limit"`
+	LandArea int64          `json:"landArea"`
+	CropType crops.CropType `json:"cropType"`
 }
 
 func (dto *UpdateFarmDTO) ToMap() map[string]interface{} {

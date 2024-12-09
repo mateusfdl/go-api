@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	http_adapter "github.com/mateusfdl/go-api/adapters/http"
 	"github.com/mateusfdl/go-api/adapters/logger"
+	"github.com/mateusfdl/go-api/internal/crops"
 )
 
 type Controller struct {
@@ -64,6 +65,8 @@ func (c *Controller) ListFarms(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	skip := query.Get("skip")
 	limit := query.Get("limit")
+	cropType := query.Get("cropType")
+	landArea := query.Get("landArea")
 
 	if skip == "" || limit == "" {
 		c.l.Error("Invalid query parameters")
@@ -85,9 +88,18 @@ func (c *Controller) ListFarms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	landAreaInt, err := strconv.Atoi(landArea)
+	if err != nil && landArea != "" {
+		c.l.Error("Failed to parse landArea", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	dto := ListFarmQuery{
-		Skip:  skipInt,
-		Limit: limitInt,
+		Skip:     skipInt,
+		Limit:    limitInt,
+		LandArea: int64(landAreaInt),
+		CropType: crops.CropType(cropType),
 	}
 
 	farms, err := c.farmService.ListFarms(r.Context(), &dto)
@@ -114,8 +126,6 @@ func (c *Controller) ListFarms(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		c.l.Error("Failed to write response", err)
 	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
 func (c *Controller) GetFarmByID(w http.ResponseWriter, r *http.Request) {
