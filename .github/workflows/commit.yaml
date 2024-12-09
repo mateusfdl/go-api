@@ -49,12 +49,3 @@ jobs:
         id: release
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Goreleaser
-        uses: goreleaser/goreleaser-action@v6
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GOVERSION: "1.23"
-        with:
-          args: release
-
