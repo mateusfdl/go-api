@@ -1,28 +1,15 @@
 package test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/joho/godotenv"
-	http_adapter "github.com/mateusfdl/go-api/adapters/http"
-	"github.com/mateusfdl/go-api/adapters/logger"
-	"github.com/mateusfdl/go-api/adapters/mongo"
-	"github.com/mateusfdl/go-api/config"
-	"github.com/mateusfdl/go-api/internal/crops"
-	"github.com/mateusfdl/go-api/internal/farms"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 var (
-	s  *http_adapter.HTTP
-	db *mongo.Mongo
+	driver *Driver = NewDriver()
 )
 
 type FarmResponse struct {
@@ -39,33 +26,8 @@ type FarmResponse struct {
 }
 
 func TestFarm(t *testing.T) {
-	if err := godotenv.Load(".env-test"); err != nil {
-		panic(err)
-	}
-
-	ctx := context.Background()
-	c, err := config.NewAppConfig()
-	if err != nil {
-		panic(err)
-	}
-
-	l := logger.New(&c.Logger)
-	db = mongo.New(ctx, l, &c.Mongo)
-	s = http_adapter.New(l, &c.HTTP)
-
-	cropsModule := crops.New(db.DB)
-	farmsModule := farms.New(l, &cropsModule.Repository, s, db.DB)
-
-	mongo.HookOnStart(ctx, db, l)
-
-	http_adapter.RegisterRoutes(farmsModule.Controller)
-
-	defer func() {
-		mongo.GracefulShutdown(ctx, db, l)
-		s.GracefulShutdown(ctx)
-	}()
-
-	go s.Listen()
+	driver.Start()
+	defer driver.Close()
 
 	t.Run("Create Farm", CreateFarm)
 	t.Run("List Farms", ListFarms)
@@ -89,8 +51,8 @@ func CreateFarmWithoutCrops(t *testing.T) {
     "crops": []
   }`)
 
-	w := performRequest("POST", "/farms", body)
-	assertStatusCode(t, w, http.StatusCreated)
+	w := driver.PerformRequest("POST", "/farms", body)
+	AssertStatusCode(t, w, http.StatusCreated)
 
 	var farmResponse FarmResponse
 	err := json.Unmarshal(w.Body.Bytes(), &farmResponse)
@@ -138,9 +100,9 @@ func CreateFarmWithCrops(t *testing.T) {
         }
     ]
   }`)
-	w := performRequest("POST", "/farms", b)
-	assertStatusCode(t, w, http.StatusCreated)
-	parseResponse(t, w.Body.Bytes(), &farmResponse)
+	w := driver.PerformRequest("POST", "/farms", b)
+	AssertStatusCode(t, w, http.StatusCreated)
+	ParseResponse(t, w.Body.Bytes(), &farmResponse)
 
 	if farmResponse.ID == "" {
 		t.Errorf("Expect id, but got empty")
@@ -180,14 +142,14 @@ func CreateFarmComplianceFields(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			w := performRequest("POST", "/farms", strings.NewReader(tt.body))
-			assertStatusCode(t, w, http.StatusBadRequest)
+			w := driver.PerformRequest("POST", "/farms", strings.NewReader(tt.body))
+			AssertStatusCode(t, w, http.StatusBadRequest)
 		})
 	}
 }
 
 func ListFarms(t *testing.T) {
-	wipeCollections(t, "farms", "crops")
+	driver.WipeCollections(t, "farms", "crops")
 	firstFarm := map[string]interface{}{
 		"name":              "Farm 1",
 		"landArea":          29,
@@ -212,8 +174,8 @@ func ListFarms(t *testing.T) {
 			t.Errorf("Failed to marshal farm")
 		}
 
-		w := performRequest("POST", "/farms", strings.NewReader(string(b)))
-		parseResponse(t, w.Body.Bytes(), &farmResponse)
+		w := driver.PerformRequest("POST", "/farms", strings.NewReader(string(b)))
+		ParseResponse(t, w.Body.Bytes(), &farmResponse)
 
 		farmsMap[farmResponse.ID] = farm
 	}
@@ -221,67 +183,67 @@ func ListFarms(t *testing.T) {
 	var farmsResponse []FarmResponse
 
 	t.Run("List farms", func(t *testing.T) {
-		w := performRequest("GET", "/farms?skip=0&limit=10", nil)
-		assertStatusCode(t, w, http.StatusOK)
-		parseResponse(t, w.Body.Bytes(), &farmsResponse)
-		assertEqual(t, len(farmsResponse), 2, "Number of farms")
+		w := driver.PerformRequest("GET", "/farms?skip=0&limit=10", nil)
+		AssertStatusCode(t, w, http.StatusOK)
+		ParseResponse(t, w.Body.Bytes(), &farmsResponse)
+		AssertEqual(t, len(farmsResponse), 2, "Number of farms")
 
 		for _, farm := range farmsResponse {
 			expectFarm := farmsMap[farm.ID].(map[string]interface{})
 
-			assertEqual(t, farm.Name, expectFarm["name"], "Farm name")
-			assertEqual(t, farm.Address, expectFarm["address"], "Farm address")
-			assertEqual(t, farm.LandArea, expectFarm["landArea"], "Farm land area")
-			assertEqual(t, farm.UnitOfMeasurement, expectFarm["unitOfMeasurement"], "Farm unit of measurement")
-			assertEqual(t, len(farm.Crops), len(expectFarm["crops"].([]interface{})), "Farm crops length")
+			AssertEqual(t, farm.Name, expectFarm["name"], "Farm name")
+			AssertEqual(t, farm.Address, expectFarm["address"], "Farm address")
+			AssertEqual(t, farm.LandArea, expectFarm["landArea"], "Farm land area")
+			AssertEqual(t, farm.UnitOfMeasurement, expectFarm["unitOfMeasurement"], "Farm unit of measurement")
+			AssertEqual(t, len(farm.Crops), len(expectFarm["crops"].([]interface{})), "Farm crops length")
 
 			for i, crop := range farm.Crops {
 				expectCrop := expectFarm["crops"].([]interface{})[i].(map[string]interface{})
-				assertEqual(t, crop.Type, expectCrop["type"], "Crop type")
-				assertEqual(t, crop.IsIrrigated, expectCrop["isIrrigated"], "Crop isIrrigated")
-				assertEqual(t, crop.IsInsured, expectCrop["isInsured"], "Crop isInsured")
+				AssertEqual(t, crop.Type, expectCrop["type"], "Crop type")
+				AssertEqual(t, crop.IsIrrigated, expectCrop["isIrrigated"], "Crop isIrrigated")
+				AssertEqual(t, crop.IsInsured, expectCrop["isInsured"], "Crop isInsured")
 			}
 		}
 	})
 
 	t.Run("Filter farms by land area", func(t *testing.T) {
-		w := performRequest("GET", "/farms?skip=0&limit=1&landArea=39", nil)
-		parseResponse(t, w.Body.Bytes(), &farmsResponse)
+		w := driver.PerformRequest("GET", "/farms?skip=0&limit=1&landArea=39", nil)
+		ParseResponse(t, w.Body.Bytes(), &farmsResponse)
 		expectFarm := farmsMap[farmsResponse[0].ID].(map[string]interface{})
 
-		assertEqual(t, len(farmsResponse), 1, "Number of farms")
-		assertEqual(t, farmsResponse[0].LandArea, expectFarm["landArea"], "Farm land area")
+		AssertEqual(t, len(farmsResponse), 1, "Number of farms")
+		AssertEqual(t, farmsResponse[0].LandArea, expectFarm["landArea"], "Farm land area")
 	})
 
 	t.Run("Filter farms by crop type", func(t *testing.T) {
-		w := performRequest("GET", "/farms?skip=0&limit=1&cropType=CORN", nil)
-		parseResponse(t, w.Body.Bytes(), &farmsResponse)
+		w := driver.PerformRequest("GET", "/farms?skip=0&limit=1&cropType=CORN", nil)
+		ParseResponse(t, w.Body.Bytes(), &farmsResponse)
 
-		assertEqual(t, len(farmsResponse), 1, "Number of farms")
-		assertEqual(t, len(farmsResponse[0].Crops), 1, "Number of crops")
-		assertEqual(t, farmsResponse[0].Crops[0].Type, "CORN", "Crop type")
+		AssertEqual(t, len(farmsResponse), 1, "Number of farms")
+		AssertEqual(t, len(farmsResponse[0].Crops), 1, "Number of crops")
+		AssertEqual(t, farmsResponse[0].Crops[0].Type, "CORN", "Crop type")
 	})
 
 	t.Run("Returns paginated results", func(t *testing.T) {
-		w := performRequest("GET", "/farms?skip=0&limit=1", nil)
-		parseResponse(t, w.Body.Bytes(), &farmsResponse)
+		w := driver.PerformRequest("GET", "/farms?skip=0&limit=1", nil)
+		ParseResponse(t, w.Body.Bytes(), &farmsResponse)
 
-		assertEqual(t, len(farmsResponse), 1, "Number of farms")
-		assertEqual(t, farmsResponse[0].Name, "Farm 1", "Farm name")
+		AssertEqual(t, len(farmsResponse), 1, "Number of farms")
+		AssertEqual(t, farmsResponse[0].Name, "Farm 1", "Farm name")
 
-		w = performRequest("GET", "/farms?skip=1&limit=1", nil)
-		parseResponse(t, w.Body.Bytes(), &farmsResponse)
+		w = driver.PerformRequest("GET", "/farms?skip=1&limit=1", nil)
+		ParseResponse(t, w.Body.Bytes(), &farmsResponse)
 
-		assertEqual(t, len(farmsResponse), 1, "Number of farms")
-		assertEqual(t, farmsResponse[0].Name, "Farm 2", "Farm name")
+		AssertEqual(t, len(farmsResponse), 1, "Number of farms")
+		AssertEqual(t, farmsResponse[0].Name, "Farm 2", "Farm name")
 	})
 
-	wipeCollections(t, "farms", "crops")
+	driver.WipeCollections(t, "farms", "crops")
 	t.Run("Returns empty results", func(t *testing.T) {
-		w := performRequest("GET", "/farms?skip=0&limit=25", nil)
-		parseResponse(t, w.Body.Bytes(), &farmsResponse)
+		w := driver.PerformRequest("GET", "/farms?skip=0&limit=25", nil)
+		ParseResponse(t, w.Body.Bytes(), &farmsResponse)
 
-		assertEqual(t, len(farmsResponse), 0, "Number of farms")
+		AssertEqual(t, len(farmsResponse), 0, "Number of farms")
 	})
 }
 
@@ -295,19 +257,19 @@ func FarmGet(t *testing.T) {
     "crops": []
   }`)
 
-	w := performRequest("POST", "/farms", body)
-	assertStatusCode(t, w, http.StatusCreated)
-	parseResponse(t, w.Body.Bytes(), &farmResponse)
+	w := driver.PerformRequest("POST", "/farms", body)
+	AssertStatusCode(t, w, http.StatusCreated)
+	ParseResponse(t, w.Body.Bytes(), &farmResponse)
 
-	w = performRequest("GET", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
-	assertStatusCode(t, w, http.StatusOK)
-	parseResponse(t, w.Body.Bytes(), &farmResponse)
+	w = driver.PerformRequest("GET", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
+	AssertStatusCode(t, w, http.StatusOK)
+	ParseResponse(t, w.Body.Bytes(), &farmResponse)
 
-	assertEqual(t, farmResponse.Name, "Farm 1", "Farm name")
-	assertEqual(t, farmResponse.Address, "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil", "Farm address")
-	assertEqual(t, farmResponse.LandArea, 87, "Farm land area")
-	assertEqual(t, farmResponse.UnitOfMeasurement, "hectares", "Farm unit of measurement")
-	assertEqual(t, len(farmResponse.Crops), 0, "Farm crops length")
+	AssertEqual(t, farmResponse.Name, "Farm 1", "Farm name")
+	AssertEqual(t, farmResponse.Address, "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil", "Farm address")
+	AssertEqual(t, farmResponse.LandArea, 87, "Farm land area")
+	AssertEqual(t, farmResponse.UnitOfMeasurement, "hectares", "Farm unit of measurement")
+	AssertEqual(t, len(farmResponse.Crops), 0, "Farm crops length")
 }
 
 func FarmUpdate(t *testing.T) {
@@ -320,24 +282,24 @@ func FarmUpdate(t *testing.T) {
     "crops": []
   }`)
 
-	w := performRequest("POST", "/farms", body)
-	assertStatusCode(t, w, http.StatusCreated)
-	parseResponse(t, w.Body.Bytes(), &farmResponse)
+	w := driver.PerformRequest("POST", "/farms", body)
+	AssertStatusCode(t, w, http.StatusCreated)
+	ParseResponse(t, w.Body.Bytes(), &farmResponse)
 
 	body = strings.NewReader(`{ "name": "Farm 1 Updated" }`)
 
-	w = performRequest("PUT", fmt.Sprintf("/farms/%v", farmResponse.ID), body)
+	w = driver.PerformRequest("PUT", fmt.Sprintf("/farms/%v", farmResponse.ID), body)
 
-	assertStatusCode(t, w, http.StatusOK)
+	AssertStatusCode(t, w, http.StatusOK)
 
-	w = performRequest("GET", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
-	parseResponse(t, w.Body.Bytes(), &farmResponse)
-	assertEqual(t, farmResponse.Name, "Farm 1 Updated", "Farm name")
+	w = driver.PerformRequest("GET", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
+	ParseResponse(t, w.Body.Bytes(), &farmResponse)
+	AssertEqual(t, farmResponse.Name, "Farm 1 Updated", "Farm name")
 
 	// Keep untouched fields
-	assertEqual(t, farmResponse.Address, "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil", "Farm address")
-	assertEqual(t, farmResponse.LandArea, 87, "Farm land area")
-	assertEqual(t, farmResponse.UnitOfMeasurement, "hectares", "Farm unit of measurement")
+	AssertEqual(t, farmResponse.Address, "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil", "Farm address")
+	AssertEqual(t, farmResponse.LandArea, 87, "Farm land area")
+	AssertEqual(t, farmResponse.UnitOfMeasurement, "hectares", "Farm unit of measurement")
 }
 
 func FarmDelete(t *testing.T) {
@@ -350,47 +312,13 @@ func FarmDelete(t *testing.T) {
     "crops": []
   }`)
 
-	w := performRequest("POST", "/farms", body)
-	assertStatusCode(t, w, http.StatusCreated)
-	parseResponse(t, w.Body.Bytes(), &farmResponse)
+	w := driver.PerformRequest("POST", "/farms", body)
+	AssertStatusCode(t, w, http.StatusCreated)
+	ParseResponse(t, w.Body.Bytes(), &farmResponse)
 
-	w = performRequest("DELETE", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
-	assertStatusCode(t, w, http.StatusNoContent)
+	w = driver.PerformRequest("DELETE", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
+	AssertStatusCode(t, w, http.StatusNoContent)
 
-	w = performRequest("GET", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
-	assertStatusCode(t, w, http.StatusNotFound)
-}
-
-func assertStatusCode(t *testing.T, response *httptest.ResponseRecorder, expect int) {
-	if response.Code != expect {
-		t.Errorf("Expect status code %d, but got %d", expect, response.Code)
-	}
-}
-
-func performRequest(method, path string, body io.Reader) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, path, body)
-	w := httptest.NewRecorder()
-	s.Router.ServeHTTP(w, req)
-	return w
-}
-
-func wipeCollections(t *testing.T, collectionNames ...string) {
-	for _, collectionName := range collectionNames {
-		_, err := db.DB.Collection(collectionName).DeleteMany(context.Background(), bson.M{})
-		if err != nil {
-			t.Errorf("Failed to wipe collection %s", collectionName)
-		}
-	}
-}
-
-func assertEqual(t *testing.T, got, want interface{}, message string) {
-	if got != want {
-		t.Errorf("%s: expect %v, but got %v", message, want, got)
-	}
-}
-
-func parseResponse(t *testing.T, data []byte, v interface{}) {
-	if err := json.Unmarshal(data, v); err != nil {
-		t.Fatalf("Failed to unmarshal response body: %v", err)
-	}
+	w = driver.PerformRequest("GET", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
+	AssertStatusCode(t, w, http.StatusNotFound)
 }
