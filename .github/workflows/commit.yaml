@@ -49,4 +49,4 @@ jobs:
         id: release
         with:
           custom-arguments: '--commit-analyzer-opt patch_release_rules=fix,ref,build,chore'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_TOKEN }}
