@@ -53,7 +53,7 @@ func TestFarm(t *testing.T) {
 	db = mongo.New(ctx, l, &c.Mongo)
 	s = http_adapter.New(l, &c.HTTP)
 
-	cropsModule := crops.New(db.DB, l)
+	cropsModule := crops.New(db.DB)
 	farmsModule := farms.New(l, &cropsModule.Repository, s, db.DB)
 
 	mongo.HookOnStart(ctx, db, l)

@@ -34,7 +34,7 @@ func main() {
 	s := server.New(l, &c.HTTP)
 
 	healthModule := health.New(s, l)
-	cropsModule := crops.New(db.DB, l)
+	cropsModule := crops.New(db.DB)
 	farmsModule := farms.New(l, &cropsModule.Repository, s, db.DB)
 
 	// Bootstrapping
