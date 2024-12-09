@@ -2,6 +2,9 @@ openapi: 3.0.0
 info:
   title: Go API 
   version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local server
 paths:
   /farms:
     post:
@@ -44,6 +47,19 @@ paths:
           schema:
             type: integer
             description: Maximum number of farms to return
+        - name: landArea
+          in: query
+          required: false
+          schema:
+            type: integer
+            description: Filter farms by land area greater than or equal to landArea param
+        - name: cropType
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Filter farms that has any crop of the cropType param
+            enum: [CORN, SOYBEANS, COFFEE, RICE, BEANS]
       responses:
         '200':
           description: List of farms
