@@ -2,11 +2,30 @@ package crops
 
 import "time"
 
+const (
+	CropTypeCorn    = "CORN"
+	CropTypeSoybean = "SOYBEANS"
+	CropTypeCoffee  = "COFFEE"
+	CropTypeRice    = "RICE"
+	CropTypeBeans   = "BEANS"
+)
+
+type CropType string
+
+var CropTypes = []CropType{
+	CropTypeCorn,
+	CropTypeSoybean,
+	CropTypeCoffee,
+	CropTypeRice,
+	CropTypeBeans,
+}
+
 type Crop struct {
-	ID          int       `bson:"_id"`
-	Type        string    `bson:"type"`
-	IsIrrigated bool      `bson:"is_irrigated"`
-	IsInsured   bool      `bson:"is_insured"`
-	CreatedAt   time.Time `bson:"created_at"`
-	UpdatedAt   time.Time `bson:"updated_at"`
+	ID          string    `bson:"_id"`
+	FarmID      string    `bson:"farmId"`
+	Type        CropType  `bson:"type"`
+	IsIrrigated bool      `bson:"isIrrigated"`
+	IsInsured   bool      `bson:"isInsured"`
+	CreatedAt   time.Time `bson:"createdAt"`
+	UpdatedAt   time.Time `bson:"updatedAt"`
 }
