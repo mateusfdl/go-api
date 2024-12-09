@@ -3,6 +3,7 @@ package farms
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -52,7 +53,7 @@ func (c *Controller) CreateFarm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	_, err = w.Write([]byte(`{"id": "` + id + `"}`))
+	_, err = fmt.Fprintf(w, `{"id": "%v"}`, id)
 	if err != nil {
 		c.l.Error("Failed to write response")
 	}
