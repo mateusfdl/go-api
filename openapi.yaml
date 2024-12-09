@@ -1,0 +1,208 @@
+openapi: 3.0.0
+info:
+  title: Go API 
+  version: 1.0.0
+paths:
+  /farms:
+    post:
+      summary: Create a new farm
+      operationId: createFarm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFarmDTO'
+      responses:
+        '201':
+          description: Farm created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: ID of the created farm
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+    get:
+      summary: List farms
+      operationId: listFarms
+      parameters:
+        - name: skip
+          in: query
+          required: true
+          schema:
+            type: integer
+            description: Number of farms to skip
+        - name: limit
+          in: query
+          required: true
+          schema:
+            type: integer
+            description: Maximum number of farms to return
+      responses:
+        '200':
+          description: List of farms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Farm'
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+  /farms/{id}:
+    get:
+      summary: Get farm by ID
+      operationId: getFarmById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: ID of the farm
+      responses:
+        '200':
+          description: Farm details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Farm'
+        '400':
+          description: Bad request
+        '404':
+          description: Farm not found
+        '500':
+          description: Internal server error
+    put:
+      summary: Update farm by ID
+      operationId: updateFarm
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: ID of the farm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFarmDTO'
+      responses:
+        '200':
+          description: Farm updated successfully
+        '400':
+          description: Bad request
+        '404':
+          description: Farm not found
+        '500':
+          description: Internal server error
+    delete:
+      summary: Delete farm by ID
+      operationId: deleteFarm
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: ID of the farm
+      responses:
+        '204':
+          description: Farm deleted successfully
+        '400':
+          description: Bad request
+        '404':
+          description: Farm not found
+        '500':
+          description: Internal server error
+components:
+  schemas:
+    CreateFarmDTO:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        landArea:
+          type: integer
+        unitOfMeasurement:
+          type: string
+        crops:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateCropDTO'
+    UpdateFarmDTO:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        landArea:
+          type: integer
+        unitOfMeasurement:
+          type: string
+    Farm:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        landArea:
+          type: integer
+        unitOfMeasurement:
+          type: string
+        crops:
+          type: array
+          items:
+            $ref: '#/components/schemas/Crop'
+    CreateCropDTO:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/CropType'
+        isIrrigated:
+          type: boolean
+        isInsured:
+          type: boolean
+    Crop:
+      type: object
+      properties:
+        id:
+          type: string
+        farmId:
+          type: string
+        type:
+          $ref: '#/components/schemas/CropType'
+        isIrrigated:
+          type: boolean
+        isInsured:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CropType:
+      type: string
+      enum:
+        - CORN
+        - SOYBEANS
+        - COFFEE
+        - RICE
+        - BEANS
