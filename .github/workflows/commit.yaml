@@ -48,4 +48,5 @@ jobs:
         uses: go-semantic-release/action@v1
         id: release
         with:
+          custom-arguments: '--commit-analyzer-opt patch_release_rules=fix,ref,build,chore'
           github-token: ${{ secrets.GITHUB_TOKEN }}
