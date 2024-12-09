@@ -21,6 +21,7 @@ func NewController(h *http_adapter.HTTP, farmService *Service, logger *logger.Lo
 	return &Controller{farmService: farmService, l: logger, h: h}
 }
 
+// Register all Farm routes
 func (c *Controller) RegisterRoutes() {
 	c.l.Info("Registering farm routes")
 	c.h.Router.HandleFunc("/farms", c.CreateFarm).Methods("POST").Name("CreateFarm")
@@ -93,6 +94,11 @@ func (c *Controller) ListFarms(w http.ResponseWriter, r *http.Request) {
 		c.l.Error("Failed to list farms", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
+	}
+
+	// Default value for empty farms
+	if len(farms) == 0 {
+		farms = []Farm{}
 	}
 
 	response, err := json.Marshal(farms)

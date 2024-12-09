@@ -275,6 +275,14 @@ func ListFarms(t *testing.T) {
 		assertEqual(t, len(farmsResponse), 1, "Number of farms")
 		assertEqual(t, farmsResponse[0].Name, "Farm 2", "Farm name")
 	})
+
+	wipeCollections(t, "farms", "crops")
+	t.Run("Returns empty results", func(t *testing.T) {
+		w := performRequest("GET", "/farms?skip=0&limit=25", nil)
+		parseResponse(t, w.Body.Bytes(), &farmsResponse)
+
+		assertEqual(t, len(farmsResponse), 0, "Number of farms")
+	})
 }
 
 func FarmGet(t *testing.T) {
