@@ -103,6 +103,8 @@ func CreateFarmWithoutCrops(t *testing.T) {
 }
 
 func CreateFarmWithCrops(t *testing.T) {
+	var farmResponse FarmResponse
+
 	b := strings.NewReader(`{
     "name": "Farm 1",
     "landArea": 29,
@@ -125,7 +127,7 @@ func CreateFarmWithCrops(t *testing.T) {
             "isInsured": false
         },
         {
-            "type": "BEAN",
+            "type": "BEANS",
             "isIrrigated": false,
             "isInsured": true
         },
@@ -138,12 +140,8 @@ func CreateFarmWithCrops(t *testing.T) {
   }`)
 	w := performRequest("POST", "/farms", b)
 	assertStatusCode(t, w, http.StatusCreated)
+	parseResponse(t, w.Body.Bytes(), &farmResponse)
 
-	var farmResponse FarmResponse
-	err := json.Unmarshal(w.Body.Bytes(), &farmResponse)
-	if err != nil {
-		t.Errorf("Failed to unmarshal response body")
-	}
 	if farmResponse.ID == "" {
 		t.Errorf("Expected id, but got empty")
 	}
@@ -208,17 +206,14 @@ func ListFarms(t *testing.T) {
 
 	farmsMap := make(map[string]interface{})
 	for _, farm := range []interface{}{firstFarm, secondFarm} {
+		var farmResponse FarmResponse
 		b, err := json.Marshal(farm)
 		if err != nil {
 			t.Errorf("Failed to marshal farm")
 		}
-		var farmResponse FarmResponse
 
 		w := performRequest("POST", "/farms", strings.NewReader(string(b)))
-		err = json.Unmarshal(w.Body.Bytes(), &farmResponse)
-		if err != nil {
-			t.Errorf("Failed to unmarshal response body")
-		}
+		parseResponse(t, w.Body.Bytes(), &farmResponse)
 
 		farmsMap[farmResponse.ID] = farm
 	}
@@ -228,129 +223,62 @@ func ListFarms(t *testing.T) {
 	t.Run("List farms", func(t *testing.T) {
 		w := performRequest("GET", "/farms?skip=0&limit=10", nil)
 		assertStatusCode(t, w, http.StatusOK)
-
-		err := json.Unmarshal(w.Body.Bytes(), &farmsResponse)
-		if err != nil {
-			t.Errorf("Failed to unmarshal response body")
-		}
-
-		if len(farmsResponse) != 2 {
-			t.Errorf("Expected 2 farms, but got %d", len(farmsResponse))
-		}
+		parseResponse(t, w.Body.Bytes(), &farmsResponse)
+		assertEqual(t, len(farmsResponse), 2, "Number of farms")
 
 		for _, farm := range farmsResponse {
 			expectedFarm := farmsMap[farm.ID].(map[string]interface{})
-			if farm.Name != expectedFarm["name"] {
-				t.Errorf("Expected farm name %s, but got %s", expectedFarm["name"], farm.Name)
-			}
 
-			if farm.Address != expectedFarm["address"] {
-				t.Errorf("Expected farm address %s, but got %s", expectedFarm["address"], farm.Address)
-			}
-
-			if farm.LandArea != expectedFarm["landArea"] {
-				t.Errorf("Expected farm land area %d, but got %v", expectedFarm["landArea"], farm.LandArea)
-			}
-
-			if farm.UnitOfMeasurement != expectedFarm["unitOfMeasurement"] {
-				t.Errorf("Expected farm unit of measurement %s, but got %s", expectedFarm["unitOfMeasurement"], farm.UnitOfMeasurement)
-			}
-
-			if len(farm.Crops) != len(expectedFarm["crops"].([]interface{})) {
-				t.Errorf("Expected farm crops length %d, but got %d", len(expectedFarm["crops"].([]interface{})), len(farm.Crops))
-			}
+			assertEqual(t, farm.Name, expectedFarm["name"], "Farm name")
+			assertEqual(t, farm.Address, expectedFarm["address"], "Farm address")
+			assertEqual(t, farm.LandArea, expectedFarm["landArea"], "Farm land area")
+			assertEqual(t, farm.UnitOfMeasurement, expectedFarm["unitOfMeasurement"], "Farm unit of measurement")
+			assertEqual(t, len(farm.Crops), len(expectedFarm["crops"].([]interface{})), "Farm crops length")
 
 			for i, crop := range farm.Crops {
 				expectedCrop := expectedFarm["crops"].([]interface{})[i].(map[string]interface{})
-				if crop.Type != expectedCrop["type"] {
-					t.Errorf("Expected crop type %s, but got %s", expectedCrop["type"], crop.Type)
-				}
-
-				if crop.IsIrrigated != expectedCrop["isIrrigated"] {
-					t.Errorf("Expected crop isIrrigated %t, but got %t", expectedCrop["isIrrigated"], crop.IsIrrigated)
-				}
-
-				if crop.IsInsured != expectedCrop["isInsured"] {
-					t.Errorf("Expected crop isInsured %t, but got %t", expectedCrop["isInsured"], crop.IsInsured)
-				}
+				assertEqual(t, crop.Type, expectedCrop["type"], "Crop type")
+				assertEqual(t, crop.IsIrrigated, expectedCrop["isIrrigated"], "Crop isIrrigated")
+				assertEqual(t, crop.IsInsured, expectedCrop["isInsured"], "Crop isInsured")
 			}
 		}
 	})
 
 	t.Run("Filter farms by land area", func(t *testing.T) {
 		w := performRequest("GET", "/farms?skip=0&limit=1&landArea=39", nil)
-
-		err := json.Unmarshal(w.Body.Bytes(), &farmsResponse)
-		if err != nil {
-			t.Errorf("Failed to unmarshal response body")
-		}
-
-		if len(farmsResponse) != 1 {
-			t.Errorf("Expected 1 farm1, but got %d", len(farmsResponse))
-		}
-
+		parseResponse(t, w.Body.Bytes(), &farmsResponse)
 		expectedFarm := farmsMap[farmsResponse[0].ID].(map[string]interface{})
 
-		if farmsResponse[0].LandArea != expectedFarm["landArea"] {
-			t.Errorf("Expected farm land area %d, but got %v", expectedFarm["landArea"], farmsResponse[0].LandArea)
-		}
+		assertEqual(t, len(farmsResponse), 1, "Number of farms")
+		assertEqual(t, farmsResponse[0].LandArea, expectedFarm["landArea"], "Farm land area")
 	})
 
 	t.Run("Filter farms by crop type", func(t *testing.T) {
 		w := performRequest("GET", "/farms?skip=0&limit=1&cropType=CORN", nil)
+		parseResponse(t, w.Body.Bytes(), &farmsResponse)
 
-		err := json.Unmarshal(w.Body.Bytes(), &farmsResponse)
-		if err != nil {
-			t.Errorf("Failed to unmarshal response body")
-		}
-
-		if len(farmsResponse) != 1 {
-			t.Errorf("Expected 1 farm, but got %d", len(farmsResponse))
-		}
-
-		if len(farmsResponse[0].Crops) != 1 {
-			t.Errorf("Expected farm crops length 1, but got %d", len(farmsResponse[0].Crops))
-		}
-
-		if farmsResponse[0].Crops[0].Type != "CORN" {
-			t.Errorf("Expected farm crop type CORN, but got %s", farmsResponse[0].Crops[0].Type)
-		}
+		assertEqual(t, len(farmsResponse), 1, "Number of farms")
+		assertEqual(t, len(farmsResponse[0].Crops), 1, "Number of crops")
+		assertEqual(t, farmsResponse[0].Crops[0].Type, "CORN", "Crop type")
 	})
 
 	t.Run("Returns paginated results", func(t *testing.T) {
 		w := performRequest("GET", "/farms?skip=0&limit=1", nil)
+		parseResponse(t, w.Body.Bytes(), &farmsResponse)
 
-		err := json.Unmarshal(w.Body.Bytes(), &farmsResponse)
-		if err != nil {
-			t.Errorf("Failed to unmarshal response body")
-		}
-
-		if len(farmsResponse) != 1 {
-			t.Errorf("Expected 1 farm1, but got %d", len(farmsResponse))
-		}
-
-		if farmsResponse[0].Name != "Farm 1" {
-			t.Errorf("Expected farm name Farm 1, but got %s", farmsResponse[0].Name)
-		}
+		assertEqual(t, len(farmsResponse), 1, "Number of farms")
+		assertEqual(t, farmsResponse[0].Name, "Farm 1", "Farm name")
 
 		w = performRequest("GET", "/farms?skip=1&limit=1", nil)
+		parseResponse(t, w.Body.Bytes(), &farmsResponse)
 
-		err = json.Unmarshal(w.Body.Bytes(), &farmsResponse)
-		if err != nil {
-			t.Errorf("Failed to unmarshal response body")
-		}
-
-		if len(farmsResponse) != 1 {
-			t.Errorf("Expected 1 farm1, but got %d", len(farmsResponse))
-		}
-
-		if farmsResponse[0].Name != "Farm 2" {
-			t.Errorf("Expected farm name Farm 2, but got %s", farmsResponse[0].Name)
-		}
+		assertEqual(t, len(farmsResponse), 1, "Number of farms")
+		assertEqual(t, farmsResponse[0].Name, "Farm 2", "Farm name")
 	})
 }
 
 func FarmGet(t *testing.T) {
+	var farmResponse FarmResponse
 	body := strings.NewReader(`{
     "name": "Farm 1",
     "landArea": 87,
@@ -361,43 +289,21 @@ func FarmGet(t *testing.T) {
 
 	w := performRequest("POST", "/farms", body)
 	assertStatusCode(t, w, http.StatusCreated)
-
-	var farmResponse FarmResponse
-	err := json.Unmarshal(w.Body.Bytes(), &farmResponse)
-	if err != nil {
-		t.Errorf("Failed to unmarshal response body")
-	}
+	parseResponse(t, w.Body.Bytes(), &farmResponse)
 
 	w = performRequest("GET", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
 	assertStatusCode(t, w, http.StatusOK)
+	parseResponse(t, w.Body.Bytes(), &farmResponse)
 
-	err = json.Unmarshal(w.Body.Bytes(), &farmResponse)
-	if err != nil {
-		t.Errorf("Failed to unmarshal response body")
-	}
-
-	if farmResponse.Name != "Farm 1" {
-		t.Errorf("Expected farm name Farm 1, but got %s", farmResponse.Name)
-	}
-
-	if farmResponse.Address != "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil" {
-		t.Errorf("Expected farm address Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil, but got %s", farmResponse.Address)
-	}
-
-	if farmResponse.LandArea != 87 {
-		t.Errorf("Expected farm land area 87, but got %v", farmResponse.LandArea)
-	}
-
-	if farmResponse.UnitOfMeasurement != "hectares" {
-		t.Errorf("Expected farm unit of measurement hectares, but got %s", farmResponse.UnitOfMeasurement)
-	}
-
-	if len(farmResponse.Crops) != 0 {
-		t.Errorf("Expected farm crops length 0, but got %d", len(farmResponse.Crops))
-	}
+	assertEqual(t, farmResponse.Name, "Farm 1", "Farm name")
+	assertEqual(t, farmResponse.Address, "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil", "Farm address")
+	assertEqual(t, farmResponse.LandArea, 87, "Farm land area")
+	assertEqual(t, farmResponse.UnitOfMeasurement, "hectares", "Farm unit of measurement")
+	assertEqual(t, len(farmResponse.Crops), 0, "Farm crops length")
 }
 
 func FarmUpdate(t *testing.T) {
+	var farmResponse FarmResponse
 	body := strings.NewReader(`{
     "name": "Farm 1",
     "landArea": 87,
@@ -408,12 +314,7 @@ func FarmUpdate(t *testing.T) {
 
 	w := performRequest("POST", "/farms", body)
 	assertStatusCode(t, w, http.StatusCreated)
-
-	var farmResponse FarmResponse
-	err := json.Unmarshal(w.Body.Bytes(), &farmResponse)
-	if err != nil {
-		t.Errorf("Failed to unmarshal response body")
-	}
+	parseResponse(t, w.Body.Bytes(), &farmResponse)
 
 	body = strings.NewReader(`{ "name": "Farm 1 Updated" }`)
 
@@ -422,30 +323,17 @@ func FarmUpdate(t *testing.T) {
 	assertStatusCode(t, w, http.StatusOK)
 
 	w = performRequest("GET", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
-	err = json.Unmarshal(w.Body.Bytes(), &farmResponse)
-	if err != nil {
-		t.Errorf("Failed to unmarshal response body")
-	}
-
-	if farmResponse.Name != "Farm 1 Updated" {
-		t.Errorf("Expected farm name Farm 1 Updated, but got %s", farmResponse.Name)
-	}
+	parseResponse(t, w.Body.Bytes(), &farmResponse)
+	assertEqual(t, farmResponse.Name, "Farm 1 Updated", "Farm name")
 
 	// Keep untouched fields
-	if farmResponse.Address != "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil" {
-		t.Errorf("Expected farm address Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil, but got %s", farmResponse.Address)
-	}
-
-	if farmResponse.LandArea != 87 {
-		t.Errorf("Expected farm land area 87, but got %v", farmResponse.LandArea)
-	}
-
-	if farmResponse.UnitOfMeasurement != "hectares" {
-		t.Errorf("Expected farm unit of measurement hectares, but got %s", farmResponse.UnitOfMeasurement)
-	}
+	assertEqual(t, farmResponse.Address, "Rua 1, 123, Bairro 2, Porto Alegre - RS, Brasil", "Farm address")
+	assertEqual(t, farmResponse.LandArea, 87, "Farm land area")
+	assertEqual(t, farmResponse.UnitOfMeasurement, "hectares", "Farm unit of measurement")
 }
 
 func FarmDelete(t *testing.T) {
+	var farmResponse FarmResponse
 	body := strings.NewReader(`{
     "name": "Farm 1",
     "landArea": 87,
@@ -456,12 +344,7 @@ func FarmDelete(t *testing.T) {
 
 	w := performRequest("POST", "/farms", body)
 	assertStatusCode(t, w, http.StatusCreated)
-
-	var farmResponse FarmResponse
-	err := json.Unmarshal(w.Body.Bytes(), &farmResponse)
-	if err != nil {
-		t.Errorf("Failed to unmarshal response body")
-	}
+	parseResponse(t, w.Body.Bytes(), &farmResponse)
 
 	w = performRequest("DELETE", fmt.Sprintf("/farms/%v", farmResponse.ID), nil)
 	assertStatusCode(t, w, http.StatusNoContent)
@@ -489,5 +372,17 @@ func wipeCollections(t *testing.T, collectionNames ...string) {
 		if err != nil {
 			t.Errorf("Failed to wipe collection %s", collectionName)
 		}
+	}
+}
+
+func assertEqual(t *testing.T, got, want interface{}, message string) {
+	if got != want {
+		t.Errorf("%s: expected %v, but got %v", message, want, got)
+	}
+}
+
+func parseResponse(t *testing.T, data []byte, v interface{}) {
+	if err := json.Unmarshal(data, v); err != nil {
+		t.Fatalf("Failed to unmarshal response body: %v", err)
 	}
 }
