@@ -30,8 +30,7 @@ func TestHealthCheck(t *testing.T) {
 
 	healthModule := health.New(httpServer, l)
 
-	// Bootstrapping
-	mongo.HealthCheckConnection(ctx, mongodb, l)
+	mongo.HookOnStart(ctx, mongodb, l)
 
 	http.RegisterRoutes(healthModule.Controller)
 

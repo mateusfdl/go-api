@@ -11,8 +11,5 @@ type HealthCheckModule struct {
 }
 
 func New(h *http.HTTP, l *logger.Logger) *HealthCheckModule {
-	return &HealthCheckModule{
-		Controller: NewController(h, l),
-		logger:     l,
-	}
+	return &HealthCheckModule{Controller: NewController(h, l), logger: l}
 }

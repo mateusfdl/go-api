@@ -8,26 +8,23 @@ import (
 )
 
 type Controller struct {
-	httpServer *http_adapter.HTTP
-	logger     *logger.Logger
+	h *http_adapter.HTTP
+	l *logger.Logger
 }
 
-func NewController(httpServer *http_adapter.HTTP, logger *logger.Logger) *Controller {
-	return &Controller{
-		httpServer: httpServer,
-		logger:     logger,
-	}
+func NewController(h *http_adapter.HTTP, l *logger.Logger) *Controller {
+	return &Controller{h: h, l: l}
 }
 
 func (c *Controller) RegisterRoutes() {
-	c.logger.Info("Registering health routes")
-	c.httpServer.Router.HandleFunc("/health", c.HealthCheck).Methods("GET").Name("HealthCheck")
+	c.l.Info("Registering health routes")
+	c.h.Router.HandleFunc("/health", c.HealthCheck).Methods("GET").Name("HealthCheck")
 }
 
 func (c *Controller) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write([]byte("OK"))
 	if err != nil {
-		c.logger.Error("Failed to write response")
+		c.l.Error("Failed to write response")
 	}
 }
