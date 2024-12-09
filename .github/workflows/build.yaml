@@ -3,7 +3,7 @@ name: build
 on:
   push:
     tags:
-      - "V*"
+      - "v*.*.*"
   workflow_dispatch:
 
 jobs:
