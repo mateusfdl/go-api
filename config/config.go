@@ -88,8 +88,14 @@ func getMongoConfig() (mongo.Config, error) {
 		return mongo.Config{}, errors.New("invalid value for environment variable MONGO_URI: " + uri)
 	}
 
+	dbNames := os.Getenv("MONGO_DB_NAME")
+	if dbNames == "" {
+		return mongo.Config{}, errors.New("environment variable MONGO_DB_NAME is not set")
+	}
+
 	return mongo.Config{
-		URI: uri,
+		URI:    uri,
+		DBName: dbNames,
 	}, nil
 }
 

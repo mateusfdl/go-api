@@ -1,5 +1,6 @@
 package mongo
 
 type Config struct {
-	URI string
+	URI    string
+	DBName string
 }
