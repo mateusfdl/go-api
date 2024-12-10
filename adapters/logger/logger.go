@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 )
 
 type Logger struct {
@@ -11,7 +12,13 @@ type Logger struct {
 	Sugared bool
 }
 
-func New(cfg *Config) *Logger {
+func New(cfg Config) *Logger {
+	if cfg.Sugared {
+		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	} else {
+		log.SetFlags(0)
+	}
+
 	return &Logger{
 		Level:   strings.ToLower(cfg.Level),
 		Sugared: cfg.Sugared,
@@ -42,16 +49,16 @@ func (l *Logger) Error(msg string, fields ...interface{}) {
 	}
 }
 
-// log handles the actual logging, applying colors if Sugared is enabled
 func (l *Logger) log(level, color, msg string, fields ...interface{}) {
 	if l.Sugared {
-		log.Printf("%s[%s]\x1b[0m %s %s", color, level, msg, formatFields(fields...))
+		log.Printf("%s[%s]\x1b[0m %s %s", color, level, msg, formatFieldsSugared(fields...))
 	} else {
-		log.Printf("[%s] %s %s", level, msg, formatFields(fields...))
+		t := time.Now()
+		log.Printf("%s", formatAsJSON(t.Format(time.RFC3339), level, msg, fields...))
 	}
 }
 
-// shouldLog checks if the message level should be logged based on the configured log level
+// check if the message level should be logged based on the configured log level
 func (l *Logger) shouldLog(level string) bool {
 	levels := map[string]int{"debug": 1, "info": 2, "warn": 3, "error": 4}
 	configLevel, ok := levels[l.Level]
@@ -62,8 +69,8 @@ func (l *Logger) shouldLog(level string) bool {
 	return messageLevel >= configLevel
 }
 
-// Helper function to format fields as key=value pairs
-func formatFields(fields ...interface{}) string {
+// format fields as key=value pairs
+func formatFieldsSugared(fields ...interface{}) string {
 	if len(fields) == 0 {
 		return ""
 	}
@@ -77,4 +84,22 @@ func formatFields(fields ...interface{}) string {
 		}
 	}
 	return strings.TrimSpace(builder.String())
+}
+
+// format fields as JSON
+func formatAsJSON(timestamp string, level string, msg string, fields ...interface{}) string {
+	var builder strings.Builder
+	builder.WriteString("{")
+	builder.WriteString(fmt.Sprintf("\"timestamp\": \"%s\",", timestamp))
+	builder.WriteString(fmt.Sprintf("\"level\": \"%s\",", level))
+	builder.WriteString(fmt.Sprintf("\"message\": \"%s\"", msg))
+	for i := 0; i < len(fields); i += 2 {
+		if i+1 < len(fields) {
+			builder.WriteString(fmt.Sprintf(", \"%v\": \"%v\"", fields[i], fields[i+1]))
+		} else {
+			builder.WriteString(fmt.Sprintf(", \"%v\": null", fields[i]))
+		}
+	}
+	builder.WriteString("}")
+	return builder.String()
 }
