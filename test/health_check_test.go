@@ -24,9 +24,9 @@ func TestHealthCheck(t *testing.T) {
 		panic(err)
 	}
 
-	l := logger.New(&c.Logger)
-	mongodb := mongo.New(ctx, l, &c.Mongo)
-	httpServer := http.New(l, &c.HTTP)
+	l := logger.New(c.Logger)
+	mongodb := mongo.New(ctx, l, c.Mongo)
+	httpServer := http.New(l, c.HTTP)
 
 	healthModule := health.New(httpServer, l)
 

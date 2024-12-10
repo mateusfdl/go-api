@@ -29,9 +29,9 @@ func main() {
 	}
 
 	// Adapter modules
-	l := logger.New(&c.Logger)
-	db := mongo.New(ctx, l, &c.Mongo)
-	s := server.New(l, &c.HTTP)
+	l := logger.New(c.Logger)
+	db := mongo.New(ctx, l, c.Mongo)
+	s := server.New(l, c.HTTP)
 
 	healthModule := health.New(s, l)
 	cropsModule := crops.New(db.DB)

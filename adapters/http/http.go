@@ -18,7 +18,7 @@ type HTTP struct {
 	Server  *http.Server
 }
 
-func New(l *logger.Logger, cfg *Config) *HTTP {
+func New(l *logger.Logger, cfg Config) *HTTP {
 	router := mux.NewRouter()
 	return &HTTP{
 		Port:    cfg.Port,

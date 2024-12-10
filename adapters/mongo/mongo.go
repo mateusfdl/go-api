@@ -13,7 +13,7 @@ type Mongo struct {
 	DB *mongo.Database
 }
 
-func New(ctx context.Context, l *logger.Logger, cfg *Config) *Mongo {
+func New(ctx context.Context, l *logger.Logger, cfg Config) *Mongo {
 	clientOptions := options.Client().ApplyURI(cfg.URI)
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {

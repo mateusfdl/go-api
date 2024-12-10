@@ -51,7 +51,7 @@ func getLoggerConfig() (logger.Config, error) {
 		return logger.Config{}, err
 	}
 
-	isSugared, err := getEnvAsBool("LOG_SUGARED", true)
+	isSugared, err := getEnvAsBool("LOGGER_SUGARED", true)
 	if err != nil {
 		return logger.Config{}, err
 	}

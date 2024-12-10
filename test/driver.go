@@ -33,9 +33,9 @@ func NewDriver() *Driver {
 	if err != nil {
 		panic(err)
 	}
-	l := logger.New(&c.Logger)
-	db := mongo.New(ctx, l, &c.Mongo)
-	h := http_adapter.New(l, &c.HTTP)
+	l := logger.New(c.Logger)
+	db := mongo.New(ctx, l, c.Mongo)
+	h := http_adapter.New(l, c.HTTP)
 
 	return &Driver{Server: h, Mongo: db, Logger: l, ctx: ctx}
 }
