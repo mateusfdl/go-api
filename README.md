@@ -48,6 +48,12 @@ Update the `.env` file with your specific configuration as needed.
 
 ### Running Locally
 
+Even though It's a straightforward API, still some deps are needed. You can download them by
+
+```bash
+$ go mod tidy
+```
+
 Start the API:
 
 ```bash
